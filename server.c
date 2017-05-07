@@ -90,17 +90,20 @@ void process_create_request(int sockfd, char* user, char* group, struct sockaddr
 
 	NUM_CURRENT_GROUPS++;
 
-	Group_Info info;
-	memset(&info, 0, sizeof(info));
-	// info.multicast_group_addr = (char *) malloc(sizeof(CURRENT_CHAT_GROUPS[j].multicast_group_addr));
-	strcpy(info.multicast_group_addr, CURRENT_CHAT_GROUPS[j].multicast_group_addr);
-	// strncpy(info.multicast_group_addr, CURRENT_CHAT_GROUPS[j].multicast_group_addr, sizeof(info.multicast_group_addr));
-	info.multicast_group_port = MULTICAST_PORT;
 
-	printf("%s\n", info.multicast_group_addr);
-	printf("%d\n", info.multicast_group_port);
+	char message[100]; 
+	memset(&message, 0, sizeof(message));
+	sprintf(message, "%s %d", CURRENT_CHAT_GROUPS[j].multicast_group_addr, MULTICAST_PORT);
+//	Group_Info info;
+//	memset(&info, 0, sizeof(info));
+//	info.multicast_group_addr = (char *) malloc(sizeof(CURRENT_CHAT_GROUPS[j].multicast_group_addr));
+//	strcpy(info.multicast_group_addr, CURRENT_CHAT_GROUPS[j].multicast_group_addr);
+//	strncpy(info.multicast_group_addr, CURRENT_CHAT_GROUPS[j].multicast_group_addr, sizeof(info.multicast_group_addr));
+//	info.multicast_group_port = MULTICAST_PORT;
 
-	if (sendto(sockfd, (Group_Info *) &info, sizeof(info), 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr)) == -1) {
+	printf("%s\n", message);
+
+	if (sendto(sockfd, message, strlen(message) + 1, 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr)) == -1) {
 		err_exit("Error sending datagram to client from create group.");
 	}
 }
