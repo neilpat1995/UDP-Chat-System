@@ -30,7 +30,7 @@ typedef struct Chat_Group_ {
 } Chat_Group;
 
 typedef struct Group_Info_ {
-	char* multicast_group_addr;
+	char multicast_group_addr[16];
 	int multicast_group_port;
 } Group_Info;
 
@@ -91,11 +91,16 @@ void process_create_request(int sockfd, char* user, char* group, struct sockaddr
 	NUM_CURRENT_GROUPS++;
 
 	Group_Info info;
-	info.multicast_group_addr = (char *) malloc(16);
-	strncpy(info.multicast_group_addr, CURRENT_CHAT_GROUPS[j].multicast_group_addr, sizeof(info.multicast_group_addr));
+	memset(&info, 0, sizeof(info));
+	// info.multicast_group_addr = (char *) malloc(sizeof(CURRENT_CHAT_GROUPS[j].multicast_group_addr));
+	strcpy(info.multicast_group_addr, CURRENT_CHAT_GROUPS[j].multicast_group_addr);
+	// strncpy(info.multicast_group_addr, CURRENT_CHAT_GROUPS[j].multicast_group_addr, sizeof(info.multicast_group_addr));
 	info.multicast_group_port = MULTICAST_PORT;
 
-	if (sendto(sockfd, &info, sizeof(info), 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr)) == -1) {
+	printf("%s\n", info.multicast_group_addr);
+	printf("%d\n", info.multicast_group_port);
+
+	if (sendto(sockfd, (Group_Info *) &info, sizeof(info), 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr)) == -1) {
 		err_exit("Error sending datagram to client from create group.");
 	}
 }
@@ -119,7 +124,7 @@ void process_join_request(int sockfd, char* user, char* group, struct sockaddr_i
 	//Send client the multicast IP address and port.
 	Group_Info info;
 	memset(&info, '\0', sizeof(info));
-	info.multicast_group_addr = CURRENT_CHAT_GROUPS[group_index].multicast_group_addr;
+	strcpy(info.multicast_group_addr, CURRENT_CHAT_GROUPS[group_index].multicast_group_addr);
 	info.multicast_group_port = CURRENT_CHAT_GROUPS[group_index].multicast_group_port;
 
 	printf("Group IP: %s\n", info.multicast_group_addr);

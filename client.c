@@ -17,13 +17,13 @@
 // #define 10000MULTICAST_GROUP_IP "225.0.0.0"
 // #define MULTICAST_GROUP_PORT 2000
 
-#define SERVER_IP "192.168.1.6"
+#define SERVER_IP "127.0.0.1"
 #define SERVER_PORT 12000
 
 pthread_mutex_t chat_lock = PTHREAD_MUTEX_INITIALIZER;
 
 typedef struct Group_Info_ {
-	char *multicast_group_addr;
+	char multicast_group_addr[16];
 	int multicast_group_port;
 } Group_Info;
 
@@ -196,8 +196,9 @@ int main(int argc, char *argv[]) {
 			printf("%s\n", formatted_request);
 			// TODO: handle sendto and recvfrom errors
 			sendto(sfd, formatted_request, sizeof(formatted_request), 0, (struct sockaddr *) &server_addr, sizeof(server_addr));
+			
 			recvfrom(sfd, info_from_server, sizeof(info_from_server), 0, NULL, NULL);
-			printf("%s:%d\n", (*info_from_server).multicast_group_addr, (*info_from_server).multicast_group_port);
+			printf("%s:%d\n", info_from_server->multicast_group_addr, info_from_server->multicast_group_port);
 		}
 		else if (valid_request == 0) {
 			printf("Group name is too long, must be 50 characters or less\n");
