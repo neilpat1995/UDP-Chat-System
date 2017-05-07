@@ -79,11 +79,12 @@ void *listen_to_group(void *arg) {
 
 	memset(&group_addr, 0, sizeof(group_addr));
 	group_addr.sin_family = AF_INET;
-	group_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	group_addr.sin_addr.s_addr = inet_addr(group_ip);
 	group_addr.sin_port = htons(group_port);
 	group_addr_len = sizeof(group_addr);
 
 	if (bind(sfd, (struct sockaddr *) &group_addr, group_addr_len) == -1) {
+		perror("bind error\n");
 		err_exit();
 	}
 
@@ -119,6 +120,11 @@ void join_group() {
 	pthread_t tid;
 
 	if ((sfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+		err_exit();
+	}
+
+	int reuse = 1;
+	if(setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse, sizeof(reuse)) < 0) {
 		err_exit();
 	}
 	
