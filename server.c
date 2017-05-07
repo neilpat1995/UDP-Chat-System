@@ -24,7 +24,7 @@ UDP-based server for a multi-user chat system.
 
 typedef struct Chat_Group_ {
 	char group_name[MAX_GROUP_NAME_SIZE];
-	char* multicast_group_addr;
+	char multicast_group_addr[16];
 	int multicast_group_port;	//always set to MULTICAST_PORT
 	char users[MAX_GROUP_MEMBERS][MAX_USERNAME_SIZE];
 } Chat_Group;
@@ -91,13 +91,13 @@ void process_create_request(int sockfd, char* user, char* group, struct sockaddr
 
 	/* Create new group */
 	int j = get_free_group_index(CURRENT_CHAT_GROUPS);
-	strncpy(CURRENT_CHAT_GROUPS[j].group_name, group, MAX_GROUP_NAME_SIZE);
-	strncpy(CURRENT_CHAT_GROUPS[j].users[0], user, MAX_USERNAME_SIZE);
+	strncpy(CURRENT_CHAT_GROUPS[j].group_name, group, sizeof(group)+1);
+	strncpy(CURRENT_CHAT_GROUPS[j].users[0], user, sizeof(user)+1);
 	CURRENT_CHAT_GROUPS[j].multicast_group_port = MULTICAST_PORT;
 	char buffer[16];
 	memset(&buffer, 0, sizeof(buffer));
 	snprintf(buffer, sizeof(buffer), "%s%d", MULTICAST_START_ADDR, j);
-	CURRENT_CHAT_GROUPS[j].multicast_group_addr = buffer;
+	strcpy(CURRENT_CHAT_GROUPS[j].multicast_group_addr, buffer);
 
 	printf("%s\n", CURRENT_CHAT_GROUPS[j].multicast_group_addr);
 
@@ -160,6 +160,7 @@ void process_join_request(int sockfd, char* user, char* group, struct sockaddr_i
 	strcpy(info.multicast_group_addr, CURRENT_CHAT_GROUPS[group_index].multicast_group_addr);
 	info.multicast_group_port = CURRENT_CHAT_GROUPS[group_index].multicast_group_port;
 */
+	printf("Group index is %d\n",group_index);
 	printf("Group IP: %s\n", CURRENT_CHAT_GROUPS[group_index].multicast_group_addr);
 	printf("Group port: %d\n", MULTICAST_PORT);
 	
