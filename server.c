@@ -18,7 +18,7 @@ UDP-based server for a multi-user chat system.
 #define MAX_GROUPS 50
 
 #define MAX_MESSAGE_SIZE 101
-#define PORT 10000 //Right now, used for the server (scroll all the way to main)
+#define PORT 12000 //Right now, used for the server (scroll all the way to main)
 #define MULTICAST_PORT 2000
 #define MULTICAST_START_ADDR "235.0.0."
 
@@ -47,7 +47,7 @@ void err_exit(char* msg) {
 int get_free_group_index(Chat_Group groups[]) {
 	int i = 0;
 	while (i < MAX_GROUPS) {
-		if (&CURRENT_CHAT_GROUPS[i] == NULL) {
+		if (strncmp(CURRENT_CHAT_GROUPS[i].group_name, "", 1) == 0) {
 			return i;
 		}
 		i++;
@@ -72,21 +72,27 @@ void process_create_request(int sockfd, char* user, char* group, struct sockaddr
 	}
 
 	/* Create new group */
-	int new_group_index = get_free_group_index(CURRENT_CHAT_GROUPS);
-	strncpy(CURRENT_CHAT_GROUPS[i].group_name, group, MAX_GROUP_NAME_SIZE);
-	strncpy(CURRENT_CHAT_GROUPS[i].users[0], user, MAX_USERNAME_SIZE);
-	CURRENT_CHAT_GROUPS[i].multicast_group_port = MULTICAST_PORT;
+	int j = get_free_group_index(CURRENT_CHAT_GROUPS);
+	strncpy(CURRENT_CHAT_GROUPS[j].group_name, group, MAX_GROUP_NAME_SIZE);
+	strncpy(CURRENT_CHAT_GROUPS[j].users[0], user, MAX_USERNAME_SIZE);
+	CURRENT_CHAT_GROUPS[j].multicast_group_port = MULTICAST_PORT;
+	char buffer[16];
+	memset(&buffer, 0, sizeof(buffer));
+	snprintf(buffer, sizeof(buffer), "%s%d", MULTICAST_START_ADDR, j);
+	CURRENT_CHAT_GROUPS[j].multicast_group_addr = buffer;
 
-	sprintf(CURRENT_CHAT_GROUPS[i].multicast_group_addr, "%s%d", MULTICAST_START_ADDR, i);
-	printf("Created group name: %s\n", CURRENT_CHAT_GROUPS[i].group_name);
-	printf("Created group user: %s\n", CURRENT_CHAT_GROUPS[i].users[0]);
-	printf("Created group IP: %s\n", CURRENT_CHAT_GROUPS[i].multicast_group_addr);
-	printf("Created group port: %d\n", CURRENT_CHAT_GROUPS[i].multicast_group_port);
+	printf("%s\n", CURRENT_CHAT_GROUPS[j].multicast_group_addr);
+
+	printf("Created group name: %s\n", CURRENT_CHAT_GROUPS[j].group_name);
+	printf("Created group user: %s\n", CURRENT_CHAT_GROUPS[j].users[0]);
+	printf("Created group IP: %s\n", CURRENT_CHAT_GROUPS[j].multicast_group_addr);
+	printf("Created group port: %d\n", CURRENT_CHAT_GROUPS[j].multicast_group_port);
 
 	NUM_CURRENT_GROUPS++;
 
 	Group_Info info;
-	strcpy(info.multicast_group_addr, CURRENT_CHAT_GROUPS[i].multicast_group_addr);
+	info.multicast_group_addr = (char *) malloc(16);
+	strncpy(info.multicast_group_addr, CURRENT_CHAT_GROUPS[j].multicast_group_addr, sizeof(info.multicast_group_addr));
 	info.multicast_group_port = MULTICAST_PORT;
 
 	if (sendto(sockfd, &info, sizeof(info), 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr)) == -1) {
@@ -181,7 +187,7 @@ void func(int sockfd) {
 
 		char* username = strtok(buff, " ");
 		char* req_type = strtok(NULL, " ");
-		char* parameter = strtok(NULL, " ");
+		char* parameter = strtok(NULL, "\n");
 
 		if (parameter == NULL) { 
 			err_exit("Error: malformed input.");
