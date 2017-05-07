@@ -20,7 +20,6 @@ UDP-based server for a multi-user chat system.
 #define MAX_MESSAGE_SIZE 101
 #define PORT 10000 //Right now, used for the server (scroll all the way to main)
 #define MULTICAST_PORT 2000
-#define SA struct sockaddr
 #define MULTICAST_START_ADDR "235.0.0."
 
 typedef struct Chat_Group_ {
@@ -48,9 +47,10 @@ void err_exit(char* msg) {
 int get_free_group_index(Chat_Group groups[]) {
 	int i = 0;
 	while (i < MAX_GROUPS) {
-		if (CURRENT_CHAT_GROUPS[i] == 0) {
+		if (&CURRENT_CHAT_GROUPS[i] == NULL) {
 			return i;
 		}
+		i++;
 	}
 	return -1;
 }
@@ -68,6 +68,7 @@ void process_create_request(int sockfd, char* user, char* group, struct sockaddr
 		if (strcmp(CURRENT_CHAT_GROUPS[i].group_name, group) == 0) {
 			err_exit("Error in creating group: a group with the specified name already exists.");
 		}
+		i++;
 	}
 
 	/* Create new group */
@@ -80,7 +81,7 @@ void process_create_request(int sockfd, char* user, char* group, struct sockaddr
 	printf("Created group name: %s\n", CURRENT_CHAT_GROUPS[i].group_name);
 	printf("Created group user: %s\n", CURRENT_CHAT_GROUPS[i].users[0]);
 	printf("Created group IP: %s\n", CURRENT_CHAT_GROUPS[i].multicast_group_addr);
-	printf("Created group port: %s\n", CURRENT_CHAT_GROUPS[i].multicast_group_port);
+	printf("Created group port: %d\n", CURRENT_CHAT_GROUPS[i].multicast_group_port);
 
 	NUM_CURRENT_GROUPS++;
 
@@ -88,7 +89,7 @@ void process_create_request(int sockfd, char* user, char* group, struct sockaddr
 	strcpy(info.multicast_group_addr, CURRENT_CHAT_GROUPS[i].multicast_group_addr);
 	info.multicast_group_port = MULTICAST_PORT;
 
-	if (sendto(sockfd, info, sizeof(info), 0, (SA*) &sockaddr, sizeof(sockaddr)) == -1) {
+	if (sendto(sockfd, &info, sizeof(info), 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr)) == -1) {
 		err_exit("Error sending datagram to client from create group.");
 	}
 }
@@ -102,6 +103,7 @@ void process_join_request(int sockfd, char* user, char* group, struct sockaddr_i
 			group_index = i;
 			break;
 		}
+		i++;
 	}
 
 	if (group_index == -1) {
@@ -110,20 +112,20 @@ void process_join_request(int sockfd, char* user, char* group, struct sockaddr_i
 
 	//Send client the multicast IP address and port.
 	Group_Info info;
-	memset(info, '\0', sizeof(info));
+	memset(&info, '\0', sizeof(info));
 	info.multicast_group_addr = CURRENT_CHAT_GROUPS[group_index].multicast_group_addr;
 	info.multicast_group_port = CURRENT_CHAT_GROUPS[group_index].multicast_group_port;
 
 	printf("Group IP: %s\n", info.multicast_group_addr);
-	printf("Group port: %s\n", info.multicast_group_port);
+	printf("Group port: %d\n", info.multicast_group_port);
 
 
 	ssize_t multicast_info_sent_bytes = 0;
-	if ((multicast_info_sent_bytes = sendto(sockfd, info, sizeof(info), 0, (SA*) sockaddr, sizeof(sockaddr))) < sizeof(info)) {
+	if ((multicast_info_sent_bytes = sendto(sockfd, &info, sizeof(info), 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr))) < sizeof(info)) {
 		err_exit("Error in joining group: cannot send all multicast info in sendto().");
 	}
 }
-
+/*
 void remove_group_user(char** group_members, char* user) {
 	int index;
 	char* curr_user;
@@ -133,34 +135,37 @@ void remove_group_user(char** group_members, char* user) {
 		}
 	}
 }
-
+*/
 void process_getnames_request(int sockfd, struct sockaddr_in cli) {
-	char buf[MAX_GROUPS];
+	char buf[MAX_GROUPS][MAX_GROUP_NAME_SIZE];
 	int i;
 	int next_group_index = 0;
 	for (i = 0; i < NUM_CURRENT_GROUPS; i++) {
-		if (CURRENT_CHAT_GROUPS[i] != '\0') {
-			buf[next_group_index] = CURRENT_CHAT_GROUPS[i].group_name;
+		if (&CURRENT_CHAT_GROUPS[i] != NULL) {
+			strcpy(&buf[next_group_index][0], CURRENT_CHAT_GROUPS[i].group_name);
+			//buf[next_group_index] = CURRENT_CHAT_GROUPS[i].group_name;
 			next_group_index++;
 		}
+		i++;
 	}
-	if ((sendto(sockfd, buf, sizeof(buf), 0, (SA*) &cli, sizeof(cli))) == -1) {
+	if ((sendto(sockfd, buf, sizeof(buf), 0, (struct sockaddr *) &cli, sizeof(cli))) == -1) {
 		err_exit("Error in sendto() for get names");
 	}
 }
-
+/*
 void process_leave_request(int sockfd, char* user, char* group, struct sockaddr_in sockaddr) {
 	int i;
 	for (i = 0; i < MAX_GROUPS; i++) {
 		if (strcmp(CURRENT_CHAT_GROUPS[i].group_name, group) == 0) {
 			if (remove_group_user(CURRENT_CHAT_GROUPS[i], user) == 0) {
-				sendto(sockfd, "success", strlen("success"), 0, (SA*) &sockaddr, sizeof(sockaddr));
+				sendto(sockfd, "success", strlen("success"), 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr));
 				return;
 			}
 		}
 	}
-	sendto(sockfd, "failure", strlen("failure"), 0, (SA*) &sockaddr, sizeof(sockaddr));
+	sendto(sockfd, "failure", strlen("failure"), 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr));
 }
+*/
 
 /* Main server processing- continuously accepts requests and handles in helper functions */
 void func(int sockfd) {
@@ -169,9 +174,9 @@ void func(int sockfd) {
 	struct sockaddr_in cli;
 	clen=sizeof(cli);
 	for(;;) {
-		bzero(cli, sizeof(cli));
+		bzero(&cli, sizeof(cli));
 		bzero(buff,MAX_MESSAGE_SIZE);
-		recvfrom(sockfd,buff,sizeof(buff),0,(SA *)&cli,&clen);
+		recvfrom(sockfd,buff,sizeof(buff),0,(struct sockaddr *)&cli,&clen);
 		printf("From client %s To client",buff);
 
 		char* username = strtok(buff, " ");
@@ -193,11 +198,11 @@ void func(int sockfd) {
 		else if(strcmp(req_type, "join") == 0) {
 			process_join_request(sockfd, username, parameter, cli);
 		}
-
+		/*
 		else if(strcmp(req_type, "leave") == 0) {
 			process_leave_request(sockfd, username, parameter, cli);
 		}
-
+		*/
 		//TODO: HANDLE BETTER
 		//Request is malformed
 		/*else {
@@ -210,7 +215,8 @@ void func(int sockfd) {
 
 int main() {
 	/* Initialization */
-	memset(CURRENT_CHAT_GROUPS, '\0', strlen(CURRENT_CHAT_GROUPS));
+	bzero(&CURRENT_CHAT_GROUPS, sizeof(CURRENT_CHAT_GROUPS));
+	//memset(CURRENT_CHAT_GROUPS, '\0', strlen(CURRENT_CHAT_GROUPS));
 
 	int sockfd;
 	struct sockaddr_in servaddr;
@@ -226,7 +232,7 @@ int main() {
 	servaddr.sin_addr.s_addr=htonl(INADDR_ANY);
 	servaddr.sin_port=htons(PORT);
 
-	if((bind(sockfd,(SA *)&servaddr,sizeof(servaddr)))!=0) {
+	if((bind(sockfd,(struct sockaddr *)&servaddr,sizeof(servaddr)))!=0) {
 		printf("socket bind failed...\n");
 		exit(0);
 	}
