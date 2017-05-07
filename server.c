@@ -43,6 +43,16 @@ void err_exit(char* msg) {
 	exit(1);
 }
 
+void send_error_msg(char* msg, int sockfd, struct sockaddr_in sockaddr) {
+		int retval;
+		if ((retval = sendto(sockfd, msg, sizeof(msg), 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr))) == -1) {
+			printf("sendto() failed to send %s\n", msg);
+		}
+		else if (retval == 0) {
+			printf("sendto() sent 0 bytes of %s\n", msg);
+		}
+}
+
 /* Finds first available slot in CURRENT_CHAT_GROUPS for new group */
 int get_free_group_index(Chat_Group groups[]) {
 	int i = 0;
@@ -56,17 +66,25 @@ int get_free_group_index(Chat_Group groups[]) {
 }
 
 /* Helper function to handle create group requests. */
+/*
+Responses:
+1. ERR_MAX_GROUPS- group can't be created since max group count is reached.
+2. ERR_SAME_NAME- group with same name already exists
+*/
+
 void process_create_request(int sockfd, char* user, char* group, struct sockaddr_in sockaddr) {
 	/* Check if we have space for new group */
 	if (NUM_CURRENT_GROUPS == MAX_GROUPS) {
-		err_exit("Error in creating group: max group number reached.");
+		send_error_msg("ERR_MAX_GROUPS", sockfd, sockaddr);
+		return;
 	}
 
 	/* Check if group name already exists */
 	int i = 0;
 	while (i < MAX_GROUPS) {
 		if (strcmp(CURRENT_CHAT_GROUPS[i].group_name, group) == 0) {
-			err_exit("Error in creating group: a group with the specified name already exists.");
+			send_error_msg("ERR_SAME_NAME", sockfd, sockaddr);
+			return;
 		}
 		i++;
 	}
@@ -103,11 +121,20 @@ void process_create_request(int sockfd, char* user, char* group, struct sockaddr
 
 	printf("%s\n", message);
 
-	if (sendto(sockfd, message, strlen(message) + 1, 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr)) == -1) {
-		err_exit("Error sending datagram to client from create group.");
+	int response_err;
+	if ((response_err = sendto(sockfd, message, strlen(message) + 1, 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr))) < sizeof(message)) {
+		printf("Failed to send the entire datagram to the client.\n");
+		return;
 	}
 }
 
+
+/*
+Responses:
+1. ERR_GROUP_NOT_FOUND- group can't be found in the list of groups.
+2. ERR_SAME_NAME- group with same name already exists
+
+*/
 
 void process_join_request(int sockfd, char* user, char* group, struct sockaddr_in sockaddr) {
 	int i = 0;
@@ -121,22 +148,28 @@ void process_join_request(int sockfd, char* user, char* group, struct sockaddr_i
 	}
 
 	if (group_index == -1) {
-		err_exit("Error in joining group: invalid group name.");
+		send_error_msg("ERR_GROUP_NOT_FOUND", sockfd, sockaddr);
+		return;
 	}
 
 	//Send client the multicast IP address and port.
+
+	/*
 	Group_Info info;
 	memset(&info, '\0', sizeof(info));
 	strcpy(info.multicast_group_addr, CURRENT_CHAT_GROUPS[group_index].multicast_group_addr);
 	info.multicast_group_port = CURRENT_CHAT_GROUPS[group_index].multicast_group_port;
-
-	printf("Group IP: %s\n", info.multicast_group_addr);
-	printf("Group port: %d\n", info.multicast_group_port);
-
+*/
+	printf("Group IP: %s\n", CURRENT_CHAT_GROUPS[group_index].multicast_group_addr);
+	printf("Group port: %d\n", MULTICAST_PORT);
+	
+	char message[100]; 
+	memset(&message, 0, sizeof(message));
+	sprintf(message, "%s %d", CURRENT_CHAT_GROUPS[group_index].multicast_group_addr, MULTICAST_PORT);
 
 	ssize_t multicast_info_sent_bytes = 0;
-	if ((multicast_info_sent_bytes = sendto(sockfd, &info, sizeof(info), 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr))) < sizeof(info)) {
-		err_exit("Error in joining group: cannot send all multicast info in sendto().");
+	if ((multicast_info_sent_bytes = sendto(sockfd, message, strlen(message) + 1, 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr))) < sizeof(message)) {
+		printf("Error in joining group: cannot send all multicast info in sendto().\n");
 	}
 }
 /*
@@ -163,7 +196,7 @@ void process_getnames_request(int sockfd, struct sockaddr_in cli) {
 		i++;
 	}
 	if ((sendto(sockfd, buf, sizeof(buf), 0, (struct sockaddr *) &cli, sizeof(cli))) == -1) {
-		err_exit("Error in sendto() for get names");
+		printf("Error in sendto() for get names\n");
 	}
 }
 /*
