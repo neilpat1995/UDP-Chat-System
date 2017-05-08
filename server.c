@@ -10,7 +10,7 @@ UDP-based server for a multi-user chat system.
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-
+#include <malloc.h>
 
 #define MAX_GROUP_MEMBERS 5
 #define MAX_GROUP_NAME_SIZE 51
@@ -185,19 +185,30 @@ void remove_group_user(char** group_members, char* user) {
 }
 */
 void process_getnames_request(int sockfd, struct sockaddr_in cli) {
-	char buf[MAX_GROUPS][MAX_GROUP_NAME_SIZE];
+	char* buf;
+	if ((buf = malloc(strlen(CURRENT_CHAT_GROUPS[0].group_name))) == NULL) {	//initialize buffer by malloc()ing for first group name
+		printf("Error in malloc() for group names buffer\n");
+	}
+	memcpy(buf, CURRENT_CHAT_GROUPS[0].group_name, strlen(CURRENT_CHAT_GROUPS[0].group_name));	//copy first group name to buffer
+	//char buf[MAX_GROUPS][MAX_GROUP_NAME_SIZE];
+	
 	int i;
-	int next_group_index = 0;
-	for (i = 0; i < NUM_CURRENT_GROUPS; i++) {
+	//int next_group_index = 1;
+	for (i = 0; i < MAX_GROUPS; i++) {
 		if (&CURRENT_CHAT_GROUPS[i] != NULL) {
-			strcpy(&buf[next_group_index][0], CURRENT_CHAT_GROUPS[i].group_name);
+			if ((buf = realloc(buf, malloc_usable_size(buf) + strlen(CURRENT_CHAT_GROUPS[i].group_name))) == NULL) {
+				printf("Error in realloc()\n");
+				return;
+			}
+			memcpy((buf + (malloc_usable_size(buf))), CURRENT_CHAT_GROUPS[i].group_name, strlen(CURRENT_CHAT_GROUPS[i].group_name));
+			//strcpy(&buf[next_group_index][0], CURRENT_CHAT_GROUPS[i].group_name);
 			//buf[next_group_index] = CURRENT_CHAT_GROUPS[i].group_name;
-			next_group_index++;
+			//next_group_index++;
 		}
 		i++;
 	}
 	if ((sendto(sockfd, buf, sizeof(buf), 0, (struct sockaddr *) &cli, sizeof(cli))) == -1) {
-		printf("Error in sendto() for get names\n");
+		printf("Error in sendto() for sending response in get names\n");
 	}
 }
 /*
