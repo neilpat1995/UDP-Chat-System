@@ -207,15 +207,16 @@ int remove_group_user(int i, char* user) {
 
 void process_getnames_request(int sockfd, struct sockaddr_in cli) {
 	char* buf;
-	if ((buf = malloc(strlen(CURRENT_CHAT_GROUPS[0].group_name))) == NULL) {	//initialize buffer by malloc()ing for first group name
+	if ((buf = malloc(strlen(CURRENT_CHAT_GROUPS[0].group_name) + 1)) == NULL) {	//initialize buffer by malloc()ing for first group name
 		printf("Error in malloc() for group names buffer\n");
 	}
 	bzero(buf, strlen(buf));
 	memcpy(buf, CURRENT_CHAT_GROUPS[0].group_name, strlen(CURRENT_CHAT_GROUPS[0].group_name));	//copy first group name to buffer
 	//char buf[MAX_GROUPS][MAX_GROUP_NAME_SIZE];
-	
+	memcpy(buf + strlen(CURRENT_CHAT_GROUPS[0].group_name), "|", 1);
+
 	printf("Buffer after malloc: %s\n", buf);
-	int prev_malloc_size = strlen(CURRENT_CHAT_GROUPS[0].group_name);
+	int prev_malloc_size = strlen(CURRENT_CHAT_GROUPS[0].group_name) + 1;
 	printf("Malloced size after 1st malloc: %d\n", prev_malloc_size);
 
 	int i;
