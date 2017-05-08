@@ -189,25 +189,40 @@ void process_getnames_request(int sockfd, struct sockaddr_in cli) {
 	if ((buf = malloc(strlen(CURRENT_CHAT_GROUPS[0].group_name))) == NULL) {	//initialize buffer by malloc()ing for first group name
 		printf("Error in malloc() for group names buffer\n");
 	}
+	bzero(buf, strlen(buf));
 	memcpy(buf, CURRENT_CHAT_GROUPS[0].group_name, strlen(CURRENT_CHAT_GROUPS[0].group_name));	//copy first group name to buffer
 	//char buf[MAX_GROUPS][MAX_GROUP_NAME_SIZE];
 	
+	printf("Buffer after malloc: %s\n", buf);
+	int prev_malloc_size = strlen(CURRENT_CHAT_GROUPS[0].group_name);
+	printf("Malloced size after 1st malloc: %d\n", prev_malloc_size);
+
 	int i;
+	int group_size;
 	//int next_group_index = 1;
-	for (i = 0; i < MAX_GROUPS; i++) {
-		if (&CURRENT_CHAT_GROUPS[i] != NULL) {
-			if ((buf = realloc(buf, malloc_usable_size(buf) + strlen(CURRENT_CHAT_GROUPS[i].group_name))) == NULL) {
+	for (i = 1; i < MAX_GROUPS; i++) {
+		/*if (&CURRENT_CHAT_GROUPS[i] != NULL) {*/
+		if (strncmp(CURRENT_CHAT_GROUPS[i].group_name, "", 1) != 0) {
+			printf("Found non-empty group\n");
+			group_size = strlen(CURRENT_CHAT_GROUPS[i].group_name) + 1; // + 1 to include newline separator
+			if ((buf = realloc(buf, (prev_malloc_size + group_size))) == NULL) {
 				printf("Error in realloc()\n");
 				return;
 			}
-			memcpy((buf + (malloc_usable_size(buf))), CURRENT_CHAT_GROUPS[i].group_name, strlen(CURRENT_CHAT_GROUPS[i].group_name));
+			memcpy((buf + prev_malloc_size), CURRENT_CHAT_GROUPS[i].group_name, strlen(CURRENT_CHAT_GROUPS[i].group_name));
+			
+			memcpy((buf + prev_malloc_size + group_size), "|", 1);
+			
+			printf("after memcpy: %s\n", buf);
 			//strcpy(&buf[next_group_index][0], CURRENT_CHAT_GROUPS[i].group_name);
 			//buf[next_group_index] = CURRENT_CHAT_GROUPS[i].group_name;
 			//next_group_index++;
+			prev_malloc_size += group_size;
+			printf("New prev_malloc_size: %d\n", prev_malloc_size);
 		}
 		i++;
 	}
-	if ((sendto(sockfd, buf, sizeof(buf), 0, (struct sockaddr *) &cli, sizeof(cli))) == -1) {
+	if ((sendto(sockfd, buf, strlen(buf), 0, (struct sockaddr *) &cli, sizeof(cli))) == -1) {
 		printf("Error in sendto() for sending response in get names\n");
 	}
 }
