@@ -26,6 +26,7 @@ typedef struct Chat_Group_ {
 	char multicast_group_addr[16];
 	int multicast_group_port;	//always set to MULTICAST_PORT
 	char users[MAX_GROUP_MEMBERS][MAX_USERNAME_SIZE];
+	int num_members;
 } Chat_Group;
 
 typedef struct Group_Info_ {
@@ -104,9 +105,11 @@ void process_create_request(int sockfd, char* user, char* group, struct sockaddr
 	/* Create new group */
 	int j = get_free_group_index(CURRENT_CHAT_GROUPS);
 	printf("Index of new group: %d\n", j);
-	strncpy(CURRENT_CHAT_GROUPS[j].group_name, group, sizeof(group)+1);
+	memset(&(CURRENT_CHAT_GROUPS[j].group_name), 0, sizeof(CURRENT_CHAT_GROUPS[j].group_name));
+	strncpy(CURRENT_CHAT_GROUPS[j].group_name, group, sizeof(group));
 	printf("New group name: %s\n", CURRENT_CHAT_GROUPS[j].group_name);
-	strncpy(CURRENT_CHAT_GROUPS[j].users[0], user, sizeof(user)+1);
+	memset(&(CURRENT_CHAT_GROUPS[j].users[0]), 0, sizeof(CURRENT_CHAT_GROUPS[j].users[0]));
+	strncpy(CURRENT_CHAT_GROUPS[j].users[0], user, sizeof(user));
 	CURRENT_CHAT_GROUPS[j].multicast_group_port = MULTICAST_PORT;
 	char buffer[16];
 	memset(&buffer, 0, sizeof(buffer));
@@ -114,6 +117,8 @@ void process_create_request(int sockfd, char* user, char* group, struct sockaddr
 	strcpy(CURRENT_CHAT_GROUPS[j].multicast_group_addr, buffer);
 
 	printf("%s\n", CURRENT_CHAT_GROUPS[j].multicast_group_addr);
+
+	CURRENT_CHAT_GROUPS[j].num_members = 1;	//initialize member count to 1
 
 	printf("Created group name: %s\n", CURRENT_CHAT_GROUPS[j].group_name);
 	printf("Created group user: %s\n", CURRENT_CHAT_GROUPS[j].users[0]);
@@ -147,7 +152,7 @@ void process_create_request(int sockfd, char* user, char* group, struct sockaddr
 Responses:
 1. ERR_GROUP_NOT_FOUND- group can't be found in the list of groups.
 2. ERR_SAME_NAME- group with same name already exists
-
+3. ERR_MAX_CAPACITY- group to join already reached maximum capacity.
 */
 
 void process_join_request(int sockfd, char* user, char* group, struct sockaddr_in sockaddr) {
@@ -163,6 +168,11 @@ void process_join_request(int sockfd, char* user, char* group, struct sockaddr_i
 
 	if (group_index == -1) {
 		send_error_msg("ERR_GROUP_NOT_FOUND", sockfd, sockaddr);
+		return;
+	}
+
+	if (CURRENT_CHAT_GROUPS[group_index].num_members == MAX_GROUP_MEMBERS) {
+		send_error_msg("ERR_MAX_CAPACITY", sockfd, sockaddr);
 		return;
 	}
 
@@ -184,8 +194,10 @@ void process_join_request(int sockfd, char* user, char* group, struct sockaddr_i
 
 	int location = get_free_user_index(&CURRENT_CHAT_GROUPS[group_index]);
 	printf("Open spot for user %s is: %d\n", user, location);
-	strncpy(CURRENT_CHAT_GROUPS[group_index].users[location], user, sizeof(user)+1);
+	memset(&(CURRENT_CHAT_GROUPS[group_index].users[location]), 0, sizeof(CURRENT_CHAT_GROUPS[group_index].users[location]));
+	strncpy(CURRENT_CHAT_GROUPS[group_index].users[location], user, sizeof(user));
 	printf("%s\n", CURRENT_CHAT_GROUPS[group_index].users[location]);
+	CURRENT_CHAT_GROUPS[group_index].num_members++;	//increment member count
 
 	ssize_t multicast_info_sent_bytes = 0;
 	if ((multicast_info_sent_bytes = sendto(sockfd, message, strlen(message) + 1, 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr))) < sizeof(message)) {
@@ -200,6 +212,11 @@ int remove_group_user(int i, char* user) {
 	for (index = 0; index < MAX_GROUP_MEMBERS; index++) {
 		if (strcmp(CURRENT_CHAT_GROUPS[i].users[index], user) == 0) {
 			memset(CURRENT_CHAT_GROUPS[i].users[index], 0, MAX_USERNAME_SIZE+1);
+			CURRENT_CHAT_GROUPS[i].num_members--;	//decrement member count
+			if (CURRENT_CHAT_GROUPS[i].num_members == 0) {
+				//Delete group.
+				bzero(&CURRENT_CHAT_GROUPS[i], sizeof(CURRENT_CHAT_GROUPS[i]));
+			}
 			return 0;
 		}
 	}
@@ -266,13 +283,23 @@ void process_search_request(int sockfd, char* username, struct sockaddr_in socka
 	int i = 0;
 	int group_index = -1;
 	int j = 0;
+	printf("\n");
 	while (i < MAX_GROUPS) {
+		if (strncmp(CURRENT_CHAT_GROUPS[i].group_name, "", 1) != 0) {
+			printf("%s\n", CURRENT_CHAT_GROUPS[i].group_name);
+		}
 		while (j < MAX_GROUP_MEMBERS) {
-			if ((strcmp(CURRENT_CHAT_GROUPS[i].users[j], username)) == 0) {
+			printf("%d\n", (int) sizeof(CURRENT_CHAT_GROUPS[i].users[j]));
+			printf("%d\n", (int) sizeof(username));
+
+			if (strncmp(CURRENT_CHAT_GROUPS[i].users[j], username, strlen(username)) == 0) {
 				group_index = i;
 				break;
 			}
-			j++
+			if (strncmp(CURRENT_CHAT_GROUPS[i].users[j], "", 1) != 0) {
+				printf("\t%s\n", CURRENT_CHAT_GROUPS[i].users[j]);
+			}
+			j++;
 		}
 		i++;
 	}
@@ -322,7 +349,7 @@ void func(int sockfd) {
 		else if(strcmp(req_type, "join") == 0) {
 			process_join_request(sockfd, username, parameter, cli);
 		}
-		else if(strcmp(req_typ, "search") == 0) {
+		else if(strcmp(req_type, "search") == 0) {
 			process_search_request(sockfd, parameter, cli);
 		}
 		/*
