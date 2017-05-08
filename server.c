@@ -10,9 +10,8 @@ UDP-based server for a multi-user chat system.
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <malloc.h>
 
-#define MAX_GROUP_MEMBERS 5
+#define MAX_GROUP_MEMBERS 10
 #define MAX_GROUP_NAME_SIZE 51
 #define MAX_USERNAME_SIZE 21
 #define MAX_GROUPS 50
@@ -58,6 +57,18 @@ int get_free_group_index(Chat_Group groups[]) {
 	int i = 0;
 	while (i < MAX_GROUPS) {
 		if (strncmp(CURRENT_CHAT_GROUPS[i].group_name, "", 1) == 0) {
+			return i;
+		}
+		i++;
+	}
+	return -1;
+}
+
+/* Finds first available slot in CURRENT_CHAT_GROUPS for new group */
+int get_free_user_index(Chat_Group *group) {
+	int i = 0;
+	while (i < MAX_GROUP_MEMBERS) {
+		if (strncmp(group->users[i], "", 1) == 0) {
 			return i;
 		}
 		i++;
@@ -168,22 +179,29 @@ void process_join_request(int sockfd, char* user, char* group, struct sockaddr_i
 	memset(&message, 0, sizeof(message));
 	sprintf(message, "%s %d", CURRENT_CHAT_GROUPS[group_index].multicast_group_addr, MULTICAST_PORT);
 
+	int location = get_free_group_index(&CURRENT_CHAT_GROUPS[group_index]);
+	printf("Open spot for user is: %d\n", location);
+	strncpy(CURRENT_CHAT_GROUPS[group_index].users[location], user, sizeof(user)+1);
+
 	ssize_t multicast_info_sent_bytes = 0;
 	if ((multicast_info_sent_bytes = sendto(sockfd, message, strlen(message) + 1, 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr))) < sizeof(message)) {
 		printf("Error in joining group: cannot send all multicast info in sendto().\n");
 	}
 }
-/*
-void remove_group_user(char** group_members, char* user) {
+
+int remove_group_user(int i, char* user) {
+	//strncpy(CURRENT_CHAT_GROUPS[j].users[0], user, sizeof(user)+1);
+	//char users[MAX_GROUP_MEMBERS][MAX_USERNAME_SIZE];
 	int index;
-	char* curr_user;
-	for (index = 0; index < strlen(group_members); index += ) {
-		if ((strcmp(group_members), user) == 0) {
-			memset(*group_members)
+	for (index = 0; index < MAX_GROUP_MEMBERS; index++) {
+		if (strcmp(CURRENT_CHAT_GROUPS[i].users[index], user) == 0) {
+			memset(CURRENT_CHAT_GROUPS[i].users[index], 0, MAX_USERNAME_SIZE+1);
+			return 0;
 		}
 	}
+	return -1;
 }
-*/
+
 void process_getnames_request(int sockfd, struct sockaddr_in cli) {
 	char* buf;
 	if ((buf = malloc(strlen(CURRENT_CHAT_GROUPS[0].group_name))) == NULL) {	//initialize buffer by malloc()ing for first group name
@@ -226,12 +244,12 @@ void process_getnames_request(int sockfd, struct sockaddr_in cli) {
 		printf("Error in sendto() for sending response in get names\n");
 	}
 }
-/*
+
 void process_leave_request(int sockfd, char* user, char* group, struct sockaddr_in sockaddr) {
 	int i;
 	for (i = 0; i < MAX_GROUPS; i++) {
 		if (strcmp(CURRENT_CHAT_GROUPS[i].group_name, group) == 0) {
-			if (remove_group_user(CURRENT_CHAT_GROUPS[i], user) == 0) {
+			if (remove_group_user(i, user) == 0) {
 				sendto(sockfd, "success", strlen("success"), 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr));
 				return;
 			}
@@ -239,7 +257,7 @@ void process_leave_request(int sockfd, char* user, char* group, struct sockaddr_
 	}
 	sendto(sockfd, "failure", strlen("failure"), 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr));
 }
-*/
+
 
 /* Main server processing- continuously accepts requests and handles in helper functions */
 void func(int sockfd) {
