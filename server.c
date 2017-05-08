@@ -182,9 +182,10 @@ void process_join_request(int sockfd, char* user, char* group, struct sockaddr_i
 	memset(&message, 0, sizeof(message));
 	sprintf(message, "%s %d", CURRENT_CHAT_GROUPS[group_index].multicast_group_addr, MULTICAST_PORT);
 
-	int location = get_free_group_index(&CURRENT_CHAT_GROUPS[group_index]);
+	int location = get_free_user_index(&CURRENT_CHAT_GROUPS[group_index]);
 	printf("Open spot for user %s is: %d\n", user, location);
 	strncpy(CURRENT_CHAT_GROUPS[group_index].users[location], user, sizeof(user)+1);
+	printf("%s\n", CURRENT_CHAT_GROUPS[group_index].users[location]);
 
 	ssize_t multicast_info_sent_bytes = 0;
 	if ((multicast_info_sent_bytes = sendto(sockfd, message, strlen(message) + 1, 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr))) < sizeof(message)) {
