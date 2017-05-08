@@ -68,6 +68,7 @@ int get_free_group_index(Chat_Group groups[]) {
 int get_free_user_index(Chat_Group *group) {
 	int i = 0;
 	while (i < MAX_GROUP_MEMBERS) {
+		printf("user is %s\n",group->users[i]);
 		if (strncmp(group->users[i], "", 1) == 0) {
 			return i;
 		}
@@ -182,7 +183,7 @@ void process_join_request(int sockfd, char* user, char* group, struct sockaddr_i
 	sprintf(message, "%s %d", CURRENT_CHAT_GROUPS[group_index].multicast_group_addr, MULTICAST_PORT);
 
 	int location = get_free_group_index(&CURRENT_CHAT_GROUPS[group_index]);
-	printf("Open spot for user is: %d\n", location);
+	printf("Open spot for user %s is: %d\n", user, location);
 	strncpy(CURRENT_CHAT_GROUPS[group_index].users[location], user, sizeof(user)+1);
 
 	ssize_t multicast_info_sent_bytes = 0;
