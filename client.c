@@ -29,7 +29,7 @@ typedef struct Group_Info_ {
 } Group_Info;
 
 char group_ip[16], username[MAX_USERNAME_LENGTH + 1], group_name[MAX_GROUP_LENGTH + 1]; 
-int group_port, active_thread = 0;
+int group_port;
 char friends[MAX_FRIENDS][MAX_USERNAME_LENGTH + 1]; 
 
 void err_exit() {
@@ -44,7 +44,6 @@ int validate_request(char *request) {
 	
 	memset(&buffer, 0, sizeof(buffer));
 	strncpy(buffer, request, sizeof(buffer));
-	printf("%s", buffer);
 	buff_ptr = buffer;
 	operation = strsep(&buff_ptr, " ");
 	parameter = strsep(&buff_ptr, " ");
@@ -122,11 +121,6 @@ void *listen_to_group(void *arg) {
 	}
 
 	while (1) {
-		if (active_thread == 0) {
-			close(sfd);
-			ret_val = 0;
-			pthread_exit(&ret_val);
-		}
 		memset(message, 0, sizeof(message));
 		if ((rec_mess_len = recvfrom(sfd, message, sizeof(message), 0, (struct sockaddr *) &group_addr, &group_addr_len)) == -1) {
 			err_exit();
@@ -167,7 +161,6 @@ void join_group() {
 
 	printf("Joined %s - Enter \"exit\" to leave group\n", group_name);
 
-	active_thread = 1;
 	pthread_create(&tid, NULL, listen_to_group, NULL);
 
 	while (1) {
@@ -180,10 +173,9 @@ void join_group() {
 		fgets(message, sizeof(message), stdin);
 		if (strncmp(message, "exit\n", sizeof("exit\n")) == 0) {
 			close(sfd);
-			active_thread = 0;
 			sendto(sfd, message, sizeof(message), 0, (struct sockaddr *) &group_addr, sizeof(group_addr));
-			pthread_join(tid, NULL);
-			printf("\n\nLeft %s\n", group_name);
+			pthread_cancel(tid);
+			printf("\nLeft %s\n", group_name);
 			return;		
 		}
 		sprintf(formatted_message, "%s: %s", username, message);
@@ -252,7 +244,6 @@ int main(int argc, char *argv[]) {
 		fgets(request, sizeof(request), stdin);
 		if ((valid_request = validate_request(request)) == 1) {
 			snprintf(formatted_request, sizeof(formatted_request), "%s %s", username, request);
-			printf("%s\n", formatted_request);
 			// TODO: handle sendto and recvfrom errors
 			sendto(sfd, formatted_request, sizeof(formatted_request), 0, (struct sockaddr *) &server_addr, sizeof(server_addr));
 			
@@ -275,7 +266,6 @@ int main(int argc, char *argv[]) {
 			join_group();
 			memset(&formatted_request, 0, sizeof(formatted_request));
 			sprintf(formatted_request, "%s leave %s", username, group_name);
-			printf("%s", formatted_request);
 			sendto(sfd, formatted_request, sizeof(formatted_request), 0, (struct sockaddr *) &server_addr, sizeof(server_addr));
 
 		}
