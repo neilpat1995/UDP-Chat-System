@@ -50,7 +50,8 @@ int validate_request(char *request) {
 
 	if (strncmp(operation, "create", strlen("create")) != 0 && strncmp(operation, "join", strlen("join")) != 0 && 
 			strncmp(operation, "get", strlen("get")) != 0 && strncmp(operation, "leave", strlen("leave")) &&
-			strncmp(operation, "search", strlen("search")) != 0) {
+			strncmp(operation, "search", strlen("search")) != 0 && strncmp(operation, "add", strlen("add")) != 0 
+			&& strncmp(operation, "list", strlen("list")) != 0) {
 		return -1;
 	}
 	
@@ -71,6 +72,10 @@ int validate_request(char *request) {
 		return 1;
 	}
 
+	if (strncmp(operation, "list", strlen("list")) == 0) {
+		return 1;
+	}
+
 	if (strlen(parameter) > MAX_GROUP_LENGTH) {
 		return 0;
 	}
@@ -85,8 +90,8 @@ int find_free_friend_index() {
 		if (strncmp(friends[i], "", 1) == 0) {
 			return i;
 		}
-	return -1;
 	}
+	return -1;
 }
 
 void add_friend(char *request) {
