@@ -231,7 +231,7 @@ void process_getnames_request(int sockfd, struct sockaddr_in cli) {
 	bzero(buf, strlen(buf));
 	memcpy(buf, CURRENT_CHAT_GROUPS[0].group_name, strlen(CURRENT_CHAT_GROUPS[0].group_name));	//copy first group name to buffer
 	//char buf[MAX_GROUPS][MAX_GROUP_NAME_SIZE];
-	memcpy(buf + strlen(CURRENT_CHAT_GROUPS[0].group_name), "|", 1);
+	memcpy(buf + strlen(CURRENT_CHAT_GROUPS[0].group_name), "\n", 1);
 
 	printf("Buffer after malloc: %s\n", buf);
 	int prev_malloc_size = strlen(CURRENT_CHAT_GROUPS[0].group_name) + 1;
@@ -251,7 +251,7 @@ void process_getnames_request(int sockfd, struct sockaddr_in cli) {
 			}
 			memcpy((buf + prev_malloc_size), CURRENT_CHAT_GROUPS[i].group_name, strlen(CURRENT_CHAT_GROUPS[i].group_name));
 			
-			memcpy((buf + prev_malloc_size + group_size-1), "|", 1);
+			memcpy((buf + prev_malloc_size + group_size-1), "\n", 1);
 			
 			printf("after memcpy: %s\n", buf);
 			//strcpy(&buf[next_group_index][0], CURRENT_CHAT_GROUPS[i].group_name);
@@ -301,6 +301,7 @@ void process_search_request(int sockfd, char* username, struct sockaddr_in socka
 			}
 			j++;
 		}
+		j = 0;	//reset user index
 		i++;
 	}
 
