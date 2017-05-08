@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 
+#define MAX_FRIENDS 20
 #define MAX_GROUP_LENGTH 50
 #define MAX_MESSAGE_LENGTH 140
 #define MAX_USERNAME_LENGTH 50
@@ -29,7 +30,7 @@ typedef struct Group_Info_ {
 
 char group_ip[16], username[MAX_USERNAME_LENGTH + 1], group_name[MAX_GROUP_LENGTH + 1]; 
 int group_port, active_thread = 0;
-
+char friends[MAX_FRIENDS][MAX_USERNAME_LENGTH + 1]; 
 
 void err_exit() {
 	perror("chat_client");
@@ -38,7 +39,7 @@ void err_exit() {
 
 int validate_request(char *request) {
 	char buffer[100];
-	char *buff_ptr, *operation, *groupname;
+	char *buff_ptr, *operation, *parameter;
 	int c;
 	
 	memset(&buffer, 0, sizeof(buffer));
@@ -46,22 +47,42 @@ int validate_request(char *request) {
 	printf("%s", buffer);
 	buff_ptr = buffer;
 	operation = strsep(&buff_ptr, " ");
-	groupname = strsep(&buff_ptr, " ");
+	parameter = strsep(&buff_ptr, " ");
 
 	if (strncmp(operation, "create", strlen("create")) != 0 && strncmp(operation, "join", strlen("join")) != 0 && 
 			strncmp(operation, "get", strlen("get")) != 0 && strncmp(operation, "leave", strlen("leave"))) {
 		return -1;
 	}
-	if (strlen(groupname) > MAX_GROUP_LENGTH) {
-		return 0;
+	
+	if (strncmp(operation, "get", strlen("get")) == 0) {
+		if (strncmp(parameter, "groupnames", strlen("groupnames")) == 0) {
+			return 1;
+		}
+		else {
+			return -1;
+		}
 	}
-	if (strncmp(groupname, "getgroupnames", strlen("getgroupnames")) == 0) {
+
+	if (strncmp(operation, "add", strlen("add")) == 0) {
 		return 1;
 	}
 
+	if (strlen(parameter) > MAX_GROUP_LENGTH) {
+		return 0;
+	}
 	memset(&group_name, 0, sizeof(group_name));
-	sprintf(group_name, "%s", groupname);
+	sprintf(group_name, "%s", parameter);
 	return 1;
+}
+
+int find_free_friend_index() {
+	int i;
+	for (i = 0; i < MAX_FRIENDS; i++) {
+		if (strncmp(friends[i], "", 1) == 0) {
+			return i;
+		}
+	return -1;
+	}
 }
 
 void *listen_to_group(void *arg) {
@@ -160,6 +181,7 @@ void join_group() {
 		if (strncmp(message, "exit\n", sizeof("exit\n")) == 0) {
 			close(sfd);
 			active_thread = 0;
+			sendto(sfd, message, sizeof(message), 0, (struct sockaddr *) &group_addr, sizeof(group_addr));
 			pthread_join(tid, NULL);
 			printf("\n\nLeft %s\n", group_name);
 			return;		
@@ -215,6 +237,10 @@ int main(int argc, char *argv[]) {
 	}
 
 //	info_from_server = malloc(sizeof(Group_Info));
+	int i;
+	for (i = 0; i < MAX_FRIENDS; i++) {
+		memset(&friends[i], 0, sizeof(friends[i]));
+	}
 
 	while (1) {
 		printf("Options:\n\tcreate <groupname>\n\tjoin <groupname>\n\tget groupnames\n");
@@ -234,6 +260,9 @@ int main(int argc, char *argv[]) {
 
 			if (strncmp(request, "get ", strlen("get ")) == 0) {
 				printf("%s\n", server_response);
+				continue;
+			}
+			if (strncmp(request, "add ", strlen("add ")) == 0) {
 				continue;
 			}
 
