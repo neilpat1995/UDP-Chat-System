@@ -28,7 +28,7 @@ typedef struct Group_Info_ {
 } Group_Info;
 
 char group_ip[16], username[MAX_USERNAME_LENGTH + 1], group_name[MAX_GROUP_LENGTH + 1]; 
-int group_port;
+int group_port, active_thread = 0;
 
 
 void err_exit() {
@@ -55,6 +55,9 @@ int validate_request(char *request) {
 	if (strlen(groupname) > MAX_GROUP_LENGTH) {
 		return 0;
 	}
+	if (strncmp(groupname, "getgroupnames", strlen("getgroupnames")) == 0) {
+		return 1;
+	}
 
 	memset(&group_name, 0, sizeof(group_name));
 	sprintf(group_name, "%s", groupname);
@@ -64,7 +67,7 @@ int validate_request(char *request) {
 void *listen_to_group(void *arg) {
 	struct sockaddr_in group_addr;
 	unsigned char ttl;
-	int group_addr_len, sfd, rec_mess_len, reuse;
+	int group_addr_len, sfd, rec_mess_len, reuse, ret_val;
 	struct ip_mreq mreq;
 	char message[MAX_USERNAME_LENGTH + MAX_MESSAGE_LENGTH + 3];
 
@@ -98,6 +101,11 @@ void *listen_to_group(void *arg) {
 	}
 
 	while (1) {
+		if (active_thread == 0) {
+			close(sfd);
+			ret_val = 0;
+			pthread_exit(&ret_val);
+		}
 		memset(message, 0, sizeof(message));
 		if ((rec_mess_len = recvfrom(sfd, message, sizeof(message), 0, (struct sockaddr *) &group_addr, &group_addr_len)) == -1) {
 			err_exit();
@@ -136,8 +144,9 @@ void join_group() {
 	ttl = 255;
 	setsockopt(sfd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl));
 
-	printf("Joined %s\n", group_name);
+	printf("Joined %s - Enter \"exit\" to leave group\n", group_name);
 
+	active_thread = 1;
 	pthread_create(&tid, NULL, listen_to_group, NULL);
 
 	while (1) {
@@ -148,7 +157,14 @@ void join_group() {
 		fflush(stdout);
 		pthread_mutex_unlock(&chat_lock);
 		fgets(message, sizeof(message), stdin);
-		snprintf(formatted_message, sizeof(formatted_message), "%s: %s", username, message);
+		if (strncmp(message, "exit\n", sizeof("exit\n")) == 0) {
+			close(sfd);
+			active_thread = 0;
+			pthread_join(tid, NULL);
+			printf("\n\nLeft %s\n", group_name);
+			return;		
+		}
+		sprintf(formatted_message, "%s: %s", username, message);
 		if (sendto(sfd, formatted_message, sizeof(formatted_message), 0, (struct sockaddr *) &group_addr, sizeof(group_addr)) == -1) {
 			err_exit();
 		}
@@ -215,6 +231,12 @@ int main(int argc, char *argv[]) {
 			sendto(sfd, formatted_request, sizeof(formatted_request), 0, (struct sockaddr *) &server_addr, sizeof(server_addr));
 			
 			recvfrom(sfd, server_response, sizeof(server_response), 0, NULL, NULL);
+
+			if (strncmp(request, "get ", strlen("get ")) == 0) {
+				printf("%s\n", server_response);
+				continue;
+			}
+
 			memset(&group_ip, 0, sizeof(group_ip));
 			char *temp = malloc(sizeof(server_response));
 			sprintf(temp, "%s", server_response);
@@ -222,6 +244,11 @@ int main(int argc, char *argv[]) {
 			group_port = atoi(strsep(&temp, " "));
 
 			join_group();
+			memset(&formatted_request, 0, sizeof(formatted_request));
+			sprintf(formatted_request, "%s leave %s", username, group_name);
+			printf("%s", formatted_request);
+			sendto(sfd, formatted_request, sizeof(formatted_request), 0, (struct sockaddr *) &server_addr, sizeof(server_addr));
+
 		}
 		else if (valid_request == 0) {
 			printf("Group name is too long, must be 50 characters or less\n");
