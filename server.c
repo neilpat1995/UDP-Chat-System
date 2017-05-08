@@ -262,6 +262,34 @@ void process_leave_request(int sockfd, char* user, char* group, struct sockaddr_
 	sendto(sockfd, "failure", strlen("failure"), 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr));
 }
 
+void process_search_request(int sockfd, char* username, struct sockaddr_in sockaddr) {
+	int i = 0;
+	int group_index = -1;
+	int j = 0;
+	while (i < MAX_GROUPS) {
+		while (j < MAX_GROUP_MEMBERS) {
+			if ((strcmp(CURRENT_CHAT_GROUPS[i].users[j], username)) == 0) {
+				group_index = i;
+				break;
+			}
+			j++
+		}
+		i++;
+	}
+
+	if (group_index == -1) {
+		send_error_msg("ERR_USER_NOT_FOUND", sockfd, sockaddr);
+		return;
+	}
+
+	char message[100]; 
+	memset(&message, 0, sizeof(message));
+	sprintf(message, "User %s found in group %s\n", username, CURRENT_CHAT_GROUPS[group_index].group_name);
+
+	if ((sendto(sockfd, message, 100, 0, (struct sockaddr *) &sockaddr, sizeof(sockaddr))) == -1) {
+		printf("Error in sendto() for sending response in search\n");
+	}
+}
 
 /* Main server processing- continuously accepts requests and handles in helper functions */
 void func(int sockfd) {
@@ -293,6 +321,9 @@ void func(int sockfd) {
 
 		else if(strcmp(req_type, "join") == 0) {
 			process_join_request(sockfd, username, parameter, cli);
+		}
+		else if(strcmp(req_typ, "search") == 0) {
+			process_search_request(sockfd, parameter, cli);
 		}
 		/*
 		else if(strcmp(req_type, "leave") == 0) {
