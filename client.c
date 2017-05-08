@@ -49,7 +49,8 @@ int validate_request(char *request) {
 	parameter = strsep(&buff_ptr, " ");
 
 	if (strncmp(operation, "create", strlen("create")) != 0 && strncmp(operation, "join", strlen("join")) != 0 && 
-			strncmp(operation, "get", strlen("get")) != 0 && strncmp(operation, "leave", strlen("leave"))) {
+			strncmp(operation, "get", strlen("get")) != 0 && strncmp(operation, "leave", strlen("leave")) &&
+			strncmp(operation, "search", strlen("search")) != 0) {
 		return -1;
 	}
 	
@@ -66,12 +67,24 @@ int validate_request(char *request) {
 		return 1;
 	}
 
+	if (strncmp(operation, "search", strlen("search")) == 0) {
+		return 1;
+	}
+
 	if (strlen(parameter) > MAX_GROUP_LENGTH) {
 		return 0;
 	}
 	memset(&group_name, 0, sizeof(group_name));
 	sprintf(group_name, "%s", parameter);
 	return 1;
+}
+
+int add_friend() {
+	return 0;
+}
+
+void list_friends() {
+	return;
 }
 
 int find_free_friend_index() {
@@ -243,6 +256,15 @@ int main(int argc, char *argv[]) {
 		memset(&server_response, 0, sizeof(server_response));
 		fgets(request, sizeof(request), stdin);
 		if ((valid_request = validate_request(request)) == 1) {
+			if (strncmp(request, "add ", strlen("add ")) == 0) {
+				add_friend(request);
+				continue;
+			}
+			if (strncmp(request, "list ", strlen("list ")) == 0) {
+				list_friends();
+				continue;
+			}
+
 			snprintf(formatted_request, sizeof(formatted_request), "%s %s", username, request);
 			// TODO: handle sendto and recvfrom errors
 			sendto(sfd, formatted_request, sizeof(formatted_request), 0, (struct sockaddr *) &server_addr, sizeof(server_addr));
@@ -253,7 +275,9 @@ int main(int argc, char *argv[]) {
 				printf("%s\n", server_response);
 				continue;
 			}
-			if (strncmp(request, "add ", strlen("add ")) == 0) {
+
+			if (strncmp(request, "search ", strlen("search ")) == 0) {
+				printf("%s\n", server_response);
 				continue;
 			}
 
