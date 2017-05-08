@@ -91,7 +91,9 @@ void process_create_request(int sockfd, char* user, char* group, struct sockaddr
 
 	/* Create new group */
 	int j = get_free_group_index(CURRENT_CHAT_GROUPS);
+	printf("Index of new group: %d\n", j);
 	strncpy(CURRENT_CHAT_GROUPS[j].group_name, group, sizeof(group)+1);
+	printf("New group name: %s\n", CURRENT_CHAT_GROUPS[j].group_name);
 	strncpy(CURRENT_CHAT_GROUPS[j].users[0], user, sizeof(user)+1);
 	CURRENT_CHAT_GROUPS[j].multicast_group_port = MULTICAST_PORT;
 	char buffer[16];
@@ -211,7 +213,7 @@ void process_getnames_request(int sockfd, struct sockaddr_in cli) {
 			}
 			memcpy((buf + prev_malloc_size), CURRENT_CHAT_GROUPS[i].group_name, strlen(CURRENT_CHAT_GROUPS[i].group_name));
 			
-			memcpy((buf + prev_malloc_size + group_size), "|", 1);
+			memcpy((buf + prev_malloc_size + group_size-1), "|", 1);
 			
 			printf("after memcpy: %s\n", buf);
 			//strcpy(&buf[next_group_index][0], CURRENT_CHAT_GROUPS[i].group_name);
@@ -220,7 +222,6 @@ void process_getnames_request(int sockfd, struct sockaddr_in cli) {
 			prev_malloc_size += group_size;
 			printf("New prev_malloc_size: %d\n", prev_malloc_size);
 		}
-		i++;
 	}
 	if ((sendto(sockfd, buf, strlen(buf), 0, (struct sockaddr *) &cli, sizeof(cli))) == -1) {
 		printf("Error in sendto() for sending response in get names\n");
