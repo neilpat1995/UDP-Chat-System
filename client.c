@@ -51,7 +51,7 @@ int validate_request(char *request) {
 	if (strncmp(operation, "create", strlen("create")) != 0 && strncmp(operation, "join", strlen("join")) != 0 && 
 			strncmp(operation, "get", strlen("get")) != 0 && strncmp(operation, "leave", strlen("leave")) &&
 			strncmp(operation, "search", strlen("search")) != 0 && strncmp(operation, "add", strlen("add")) != 0 
-			&& strncmp(operation, "list", strlen("list")) != 0) {
+			&& strncmp(operation, "list", strlen("list")) != 0 && strncmp(operation, "exit", strlen("exit")) != 0) {
 		return -1;
 	}
 	
@@ -69,6 +69,10 @@ int validate_request(char *request) {
 	}
 
 	if (strncmp(operation, "search", strlen("search")) == 0) {
+		return 1;
+	}
+
+	if (strncmp(operation, "exit", strlen("exit")) == 0) {
 		return 1;
 	}
 
