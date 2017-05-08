@@ -79,14 +79,6 @@ int validate_request(char *request) {
 	return 1;
 }
 
-int add_friend() {
-	return 0;
-}
-
-void list_friends() {
-	return;
-}
-
 int find_free_friend_index() {
 	int i;
 	for (i = 0; i < MAX_FRIENDS; i++) {
@@ -94,6 +86,34 @@ int find_free_friend_index() {
 			return i;
 		}
 	return -1;
+	}
+}
+
+void add_friend(char *request) {
+	char *temp = strsep(&request, " ");
+	char *friend = strsep(&request, " ");
+	if (strlen(friend) > MAX_USERNAME_LENGTH) {
+		printf("Friend name is too long, must be 20 characters or less.\n");
+		return;
+	}
+	int free_index;
+	if ((free_index = find_free_friend_index()) == -1) {
+		printf("Friends List is full\n");
+		return;
+	}
+	else if (free_index == -2) {
+		printf("Friend already in list");
+		return;
+	}
+	snprintf(friends[free_index], strlen(friend), "%s", friend);
+}
+
+void list_friends() {
+	int i;
+	for (i = 0; i < MAX_FRIENDS; i++) {
+		if (strncmp(friends[i], "", 1) != 0) {
+			printf("%s\n", friends[i]);
+		}
 	}
 }
 
@@ -172,7 +192,7 @@ void join_group() {
 	ttl = 255;
 	setsockopt(sfd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl));
 
-	printf("Joined %s - Enter \"exit\" to leave group\n", group_name);
+	printf("Joined %s\tEnter \"exit\" to leave group\n", group_name);
 
 	pthread_create(&tid, NULL, listen_to_group, NULL);
 
@@ -248,7 +268,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	while (1) {
-		printf("Options:\n\tcreate <groupname>\n\tjoin <groupname>\n\tget groupnames\n");
+		printf("Options:\n\tcreate <groupname>\n\tjoin <groupname>\n\tget groupnames\n\tadd <friend>\n\tlist friends\n\tsearch <friend>\n\texit\n");
 		printf(">>> ");
 		memset(&request, 0, sizeof(request));
 		memset(&formatted_request, 0, sizeof(formatted_request));
@@ -256,6 +276,9 @@ int main(int argc, char *argv[]) {
 		memset(&server_response, 0, sizeof(server_response));
 		fgets(request, sizeof(request), stdin);
 		if ((valid_request = validate_request(request)) == 1) {
+			if (strncmp(request, "exit", strlen("exit")) == 0) {
+				return 0;
+			}
 			if (strncmp(request, "add ", strlen("add ")) == 0) {
 				add_friend(request);
 				continue;
@@ -281,6 +304,11 @@ int main(int argc, char *argv[]) {
 				continue;
 			}
 
+			if (strncmp(request, "ERR", strlen("ERR")) == 0) {
+				printf("%s\n", server_response);
+				continue;
+			}
+
 			memset(&group_ip, 0, sizeof(group_ip));
 			char *temp = malloc(sizeof(server_response));
 			sprintf(temp, "%s", server_response);
@@ -300,4 +328,6 @@ int main(int argc, char *argv[]) {
 			printf("Invalid command\n");
 		}
 	}
+	close(sfd);
+	return 0;
 }
