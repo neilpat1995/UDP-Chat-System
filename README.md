@@ -19,3 +19,5 @@ The system can be run as follows:
 3. Compile the client: `gcc -o client client.c -pthread` and the server: `gcc -o server server.c -pthread`
 4. Run the server: `./server` and the client: `./client <username>`
 5. Interfacing on the client-side, you will see a menu of commands you can use to perform the above functionality of the system. For example, run "create group1", create a new client and run "join group1", then write messages between the two users and you should see the messages appear on your terminal.
+
+**NOTE: 'Exit group' functionality is still incomplete and is being developed; the above mentioned commands, however, all work correctly.**
